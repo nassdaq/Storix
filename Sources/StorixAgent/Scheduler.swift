@@ -13,7 +13,7 @@ public struct ScheduleConfig: Codable, Sendable {
 }
 
 public final class Scheduler: @unchecked Sendable {
-    public static let launchAgentLabel = "africa.neurotech.Storix.weekly"
+    public static let launchAgentLabel = "galacha.industries.Storix.weekly"
 
     public init() {}
 
