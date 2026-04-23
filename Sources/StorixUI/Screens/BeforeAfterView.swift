@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 public struct BeforeAfterView: View {
     public let onDone: () -> Void
@@ -9,9 +10,12 @@ public struct BeforeAfterView: View {
         self.onDone = onDone
     }
 
+    private var freedBytes: Int64 {
+        appState.lastCleanup?.totalBytes ?? 0
+    }
+
     private var freedLabel: String {
-        let bytes = appState.lastCleanup?.totalBytes ?? 0
-        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+        ByteCountFormatter.string(fromByteCount: freedBytes, countStyle: .file)
     }
 
     public var body: some View {
@@ -40,9 +44,7 @@ public struct BeforeAfterView: View {
                 .foregroundStyle(Theme.textTertiary)
 
             HStack(spacing: Theme.Spacing.md) {
-                Button {
-                    // MARK: TODO — share card render
-                } label: {
+                Button(action: share) {
                     Label("Share", systemImage: "square.and.arrow.up")
                         .frame(width: 140, height: 36)
                         .background(Theme.surface)
@@ -54,6 +56,7 @@ public struct BeforeAfterView: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
                 }
                 .buttonStyle(.plain)
+                .disabled(freedBytes == 0)
 
                 Button(action: onDone) {
                     Text("Done")
@@ -69,5 +72,57 @@ public struct BeforeAfterView: View {
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @MainActor
+    private func share() {
+        let card = ShareCard(freedLabel: freedLabel)
+        let renderer = ImageRenderer(content: card)
+        renderer.scale = 2.0
+        guard let nsImage = renderer.nsImage else { return }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.png]
+        panel.nameFieldStringValue = "storix-cleanup.png"
+        panel.begin { response in
+            guard response == .OK, let url = panel.url else { return }
+            guard let tiff = nsImage.tiffRepresentation,
+                  let rep = NSBitmapImageRep(data: tiff),
+                  let pngData = rep.representation(using: .png, properties: [:])
+            else { return }
+            try? pngData.write(to: url)
+        }
+    }
+}
+
+/// Square share card rendered off-screen by `ImageRenderer`.
+private struct ShareCard: View {
+    let freedLabel: String
+
+    var body: some View {
+        ZStack {
+            LinearGradient(
+                colors: [Theme.accent, Theme.accent2, Theme.accent3],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+
+            VStack(spacing: 18) {
+                Text("Storix")
+                    .font(.system(size: 18, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
+                Text("freed")
+                    .font(.system(size: 14))
+                    .foregroundStyle(.white.opacity(0.7))
+                Text(freedLabel)
+                    .font(.system(size: 96, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .monospacedDigit()
+                Text("on my Mac")
+                    .font(.system(size: 13))
+                    .foregroundStyle(.white.opacity(0.7))
+            }
+        }
+        .frame(width: 720, height: 720)
     }
 }

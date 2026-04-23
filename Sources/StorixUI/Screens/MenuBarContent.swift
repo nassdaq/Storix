@@ -3,6 +3,7 @@ import AppKit
 import StorixAgent
 
 public struct MenuBarContent: View {
+    @EnvironmentObject private var appState: AppState
     @State private var freeBytes: Int64 = MenuBarController.freeBootVolumeBytes()
 
     public init() {}
@@ -30,19 +31,36 @@ public struct MenuBarContent: View {
                     .monospacedDigit()
             }
 
-            Button("Quick scan") {
-                // MARK: TODO — launch scan window
+            Button(action: quickScan) {
+                HStack {
+                    if appState.isScanning {
+                        ProgressView().controlSize(.small).tint(.white)
+                        Text("Scanning…")
+                    } else {
+                        Text("Quick scan")
+                    }
+                }
+                .frame(maxWidth: .infinity)
             }
             .buttonStyle(.borderedProminent)
             .tint(Theme.accent)
+            .disabled(appState.isScanning)
 
             Button("Open Storix") {
                 NSApp.activate(ignoringOtherApps: true)
+                NSApp.windows.first?.makeKeyAndOrderFront(nil)
             }
             .buttonStyle(.bordered)
         }
         .padding(Theme.Spacing.md)
         .frame(width: 240)
         .background(Theme.background)
+        .onAppear { freeBytes = MenuBarController.freeBootVolumeBytes() }
+    }
+
+    private func quickScan() {
+        NSApp.activate(ignoringOtherApps: true)
+        NSApp.windows.first?.makeKeyAndOrderFront(nil)
+        Task { await appState.runScan() }
     }
 }

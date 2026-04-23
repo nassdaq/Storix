@@ -5,6 +5,7 @@ public struct ResultsView: View {
     public let onClean: () -> Void
     public let onQuery: () -> Void
     @EnvironmentObject private var appState: AppState
+    @State private var useTreemap = false
 
     public init(onClean: @escaping () -> Void, onQuery: @escaping () -> Void) {
         self.onClean = onClean
@@ -13,25 +14,85 @@ public struct ResultsView: View {
 
     public var body: some View {
         HStack(spacing: 0) {
-            // Left: category list
-            VStack(alignment: .leading, spacing: Theme.Spacing.md) {
-                HStack {
-                    Text("Findings")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(Theme.textPrimary)
-                    Spacer()
-                    Button(action: onQuery) {
-                        Label("Ask", systemImage: "sparkles")
-                            .font(.system(size: 11, weight: .medium))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Theme.accent)
-                }
-                .padding(.horizontal, Theme.Spacing.lg)
-                .padding(.top, Theme.Spacing.lg)
+            sidebar
+                .frame(width: 380)
+                .background(Theme.surface)
 
-                ScrollView {
-                    LazyVStack(spacing: Theme.Spacing.sm) {
+            VStack(spacing: 0) {
+                viewSwitcher
+
+                if let cat = appState.selectedCategory,
+                   let findings = appState.scanResult?.findings(in: cat),
+                   !findings.isEmpty {
+                    VSplitView {
+                        visualization
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        FindingItemsList(findings: findings)
+                            .frame(minHeight: 200)
+                    }
+                } else {
+                    visualization
+                        .padding(Theme.Spacing.lg)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var visualization: some View {
+        if let root = appState.scanResult?.rootNode {
+            if useTreemap {
+                TreemapView(root: root)
+            } else {
+                SunburstView(root: root)
+            }
+        } else {
+            VStack {
+                Spacer()
+                Text("No scan yet")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.textTertiary)
+                Spacer()
+            }
+        }
+    }
+
+    private var viewSwitcher: some View {
+        HStack {
+            Picker("", selection: $useTreemap) {
+                Text("Sunburst").tag(false)
+                Text("Treemap").tag(true)
+            }
+            .pickerStyle(.segmented)
+            .frame(width: 200)
+            Spacer()
+        }
+        .padding(.horizontal, Theme.Spacing.lg)
+        .padding(.top, Theme.Spacing.md)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: Theme.Spacing.md) {
+            HStack {
+                Text("Findings")
+                    .font(.system(size: 20, weight: .bold))
+                    .foregroundStyle(Theme.textPrimary)
+                Spacer()
+                Button(action: onQuery) {
+                    Label("Ask", systemImage: "sparkles")
+                        .font(.system(size: 11, weight: .medium))
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(Theme.accent)
+            }
+            .padding(.horizontal, Theme.Spacing.lg)
+            .padding(.top, Theme.Spacing.lg)
+
+            ScrollView {
+                LazyVStack(spacing: Theme.Spacing.sm) {
+                    if categoriesWithFindings.isEmpty {
+                        emptyState
+                    } else {
                         ForEach(categoriesWithFindings, id: \.self) { cat in
                             let items = appState.scanResult?.findings(in: cat).flatMap(\.items) ?? []
                             CategoryCard(
@@ -42,46 +103,36 @@ public struct ResultsView: View {
                                 onTap: { appState.selectedCategory = cat }
                             )
                         }
-
-                        if categoriesWithFindings.isEmpty {
-                            emptyState
-                        }
                     }
-                    .padding(.horizontal, Theme.Spacing.lg)
                 }
-
-                Divider().background(Theme.border)
-
-                HStack {
-                    VStack(alignment: .leading) {
-                        Text("Total recoverable")
-                            .font(.system(size: 10))
-                            .foregroundStyle(Theme.textTertiary)
-                        Text(totalRecoverableLabel)
-                            .font(.system(size: 18, weight: .bold, design: .rounded))
-                            .foregroundStyle(Theme.textPrimary)
-                    }
-                    Spacer()
-                    Button(action: onClean) {
-                        Text("Clean selected")
-                            .font(.system(size: 13, weight: .semibold))
-                            .padding(.horizontal, 16)
-                            .padding(.vertical, 10)
-                            .background(appState.selectedCategory == nil ? Theme.border : Theme.accent)
-                            .foregroundStyle(.white)
-                            .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
-                    }
-                    .buttonStyle(.plain)
-                    .disabled(appState.selectedCategory == nil)
-                }
-                .padding(Theme.Spacing.lg)
+                .padding(.horizontal, Theme.Spacing.lg)
             }
-            .frame(width: 380)
-            .background(Theme.surface)
 
-            // Right: sunburst
-            SunburstView(root: appState.scanResult?.rootNode ?? emptyRoot)
-                .padding(Theme.Spacing.lg)
+            Divider().background(Theme.border)
+
+            HStack {
+                VStack(alignment: .leading) {
+                    Text("Total recoverable")
+                        .font(.system(size: 10))
+                        .foregroundStyle(Theme.textTertiary)
+                    Text(totalRecoverableLabel)
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(Theme.textPrimary)
+                }
+                Spacer()
+                Button(action: onClean) {
+                    Text("Clean selected")
+                        .font(.system(size: 13, weight: .semibold))
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 10)
+                        .background(appState.selectedCategory == nil ? Theme.border : Theme.accent)
+                        .foregroundStyle(.white)
+                        .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
+                }
+                .buttonStyle(.plain)
+                .disabled(appState.selectedCategory == nil)
+            }
+            .padding(Theme.Spacing.lg)
         }
     }
 
@@ -111,15 +162,5 @@ public struct ResultsView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, Theme.Spacing.xl)
-    }
-
-    private var emptyRoot: FileNode {
-        FileNode(
-            url: URL(fileURLWithPath: NSHomeDirectory()),
-            name: "Home",
-            size: 0,
-            modified: .now,
-            isDirectory: true
-        )
     }
 }
