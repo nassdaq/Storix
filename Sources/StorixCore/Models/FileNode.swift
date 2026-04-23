@@ -36,4 +36,33 @@ public struct FileNode: Identifiable, Hashable, Sendable {
     public var ageInDays: Int {
         Calendar.current.dateComponents([.day], from: modified, to: .now).day ?? 0
     }
+
+    /// Depth-first traversal. Return `false` from `visit` to stop descending into the current node's children.
+    public func walk(_ visit: (FileNode) -> Bool) {
+        let descend = visit(self)
+        guard descend else { return }
+        for child in children {
+            child.walk(visit)
+        }
+    }
+
+    /// Collect every leaf (non-directory) file in the subtree.
+    public var allFiles: [FileNode] {
+        var out: [FileNode] = []
+        walk { node in
+            if !node.isDirectory { out.append(node) }
+            return true
+        }
+        return out
+    }
+
+    /// Collect every directory in the subtree, including self.
+    public var allDirectories: [FileNode] {
+        var out: [FileNode] = []
+        walk { node in
+            if node.isDirectory { out.append(node) }
+            return true
+        }
+        return out
+    }
 }

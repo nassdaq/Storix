@@ -5,7 +5,7 @@ public struct ScanResult: Identifiable, Sendable {
     public let root: URL
     public let startedAt: Date
     public let completedAt: Date
-    public let root_node: FileNode
+    public let rootNode: FileNode
     public let findings: [Finding]
 
     public init(
@@ -13,14 +13,14 @@ public struct ScanResult: Identifiable, Sendable {
         root: URL,
         startedAt: Date,
         completedAt: Date,
-        root_node: FileNode,
+        rootNode: FileNode,
         findings: [Finding]
     ) {
         self.id = id
         self.root = root
         self.startedAt = startedAt
         self.completedAt = completedAt
-        self.root_node = root_node
+        self.rootNode = rootNode
         self.findings = findings
     }
 
