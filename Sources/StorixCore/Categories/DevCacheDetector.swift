@@ -3,8 +3,13 @@ import Foundation
 public struct DevCacheDetector: CategoryDetector {
     public let category: JunkCategory = .devCache
 
-    /// Folder names that are almost always regenerable via a package manager.
-    public static let patterns: [String] = [
+    /// Folder names that are almost always regenerable via a package manager or toolchain.
+    /// Matched on exact directory name — any directory in the tree with one of these names
+    /// is reported as a single finding and its children are not traversed further.
+    ///
+    /// Note: generic names like `build`, `dist`, `.cache` are intentionally omitted —
+    /// too many false positives (non-dev projects have these too).
+    public static let patterns: Set<String> = [
         "node_modules",
         ".venv",
         "venv",
@@ -12,25 +17,41 @@ public struct DevCacheDetector: CategoryDetector {
         ".pytest_cache",
         ".mypy_cache",
         ".ruff_cache",
-        "target",           // Rust
+        "target",
         ".gradle",
-        "build",            // Gradle/Android
         ".next",
         ".nuxt",
         ".turbo",
-        ".cache",
-        "dist",
         ".parcel-cache",
-        "DerivedData",
-        ".idea",
-        ".vscode"
+        ".expo",
+        ".svelte-kit",
+        ".angular"
     ]
 
-    public init() {}
+    public var minBytes: Int64
+
+    public init(minBytes: Int64 = 1 * 1024 * 1024) {
+        self.minBytes = minBytes
+    }
 
     public func detect(in tree: FileNode) -> [Finding] {
-        // MARK: TODO — DFS, match patterns against directory names, stop descending once matched
-        _ = tree
-        return []
+        var hits: [FileNode] = []
+        tree.walk { node in
+            guard node.isDirectory else { return true }
+            if Self.patterns.contains(node.name) && node.size >= minBytes {
+                hits.append(node)
+                return false
+            }
+            return true
+        }
+        guard !hits.isEmpty else { return [] }
+        return [
+            Finding(
+                category: category,
+                items: hits,
+                rationale: "Regenerable package/tool caches. Safe to delete — recreated on next build/install.",
+                confidence: 0.98
+            )
+        ]
     }
 }

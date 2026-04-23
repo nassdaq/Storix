@@ -12,8 +12,18 @@ public struct LargeOldDetector: CategoryDetector {
     }
 
     public func detect(in tree: FileNode) -> [Finding] {
-        // MARK: TODO — DFS, collect leaf files where size >= minBytes && ageInDays >= minAgeDays
-        _ = tree
-        return []
+        let hits = tree.allFiles.filter { file in
+            file.size >= minBytes && file.ageInDays >= minAgeDays
+        }
+        guard !hits.isEmpty else { return [] }
+        let sizeLabel = ByteCountFormatter.string(fromByteCount: minBytes, countStyle: .file)
+        return [
+            Finding(
+                category: category,
+                items: hits.sorted { $0.size > $1.size },
+                rationale: "Files larger than \(sizeLabel) that haven't been modified in \(minAgeDays)+ days. Review before deleting.",
+                confidence: 0.55
+            )
+        ]
     }
 }
