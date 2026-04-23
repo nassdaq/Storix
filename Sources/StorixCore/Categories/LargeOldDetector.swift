@@ -11,7 +11,7 @@ public struct LargeOldDetector: CategoryDetector {
         self.minAgeDays = minAgeDays
     }
 
-    public func detect(in tree: FileNode) -> [Finding] {
+    public func detect(in tree: FileNode) async -> [Finding] {
         let hits = tree.allFiles.filter { file in
             file.size >= minBytes && file.ageInDays >= minAgeDays
         }

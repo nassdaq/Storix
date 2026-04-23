@@ -34,7 +34,7 @@ public struct DevCacheDetector: CategoryDetector {
         self.minBytes = minBytes
     }
 
-    public func detect(in tree: FileNode) -> [Finding] {
+    public func detect(in tree: FileNode) async -> [Finding] {
         var hits: [FileNode] = []
         tree.walk { node in
             guard node.isDirectory else { return true }

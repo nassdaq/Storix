@@ -18,7 +18,7 @@ public struct XcodeJunkDetector: CategoryDetector {
 
     public init() {}
 
-    public func detect(in tree: FileNode) -> [Finding] {
+    public func detect(in tree: FileNode) async -> [Finding] {
         let home = URL(fileURLWithPath: NSHomeDirectory()).standardizedFileURL.path
         let targetPaths = Set(Self.homeRelativePaths.map { "\(home)/\($0)" })
 

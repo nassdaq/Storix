@@ -13,7 +13,7 @@ public struct IncompleteDownloadDetector: CategoryDetector {
 
     public init() {}
 
-    public func detect(in tree: FileNode) -> [Finding] {
+    public func detect(in tree: FileNode) async -> [Finding] {
         let hits = tree.allFiles.filter { file in
             Self.extensions.contains(file.url.pathExtension.lowercased())
         }
