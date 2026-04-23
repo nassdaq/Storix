@@ -25,7 +25,7 @@ private func makeNode(
 @Suite("DevCacheDetector")
 struct DevCacheDetectorTests {
     @Test("reports node_modules directory as a single finding")
-    func reportsNodeModules() {
+    func reportsNodeModules() async {
         let tree = makeNode(
             name: "project",
             size: 110_000_000,
@@ -39,7 +39,7 @@ struct DevCacheDetectorTests {
             ]
         )
 
-        let findings = DevCacheDetector().detect(in: tree)
+        let findings = await DevCacheDetector().detect(in: tree)
         #expect(findings.count == 1)
         #expect(findings.first?.items.count == 1)
         #expect(findings.first?.items.first?.name == "node_modules")
@@ -47,7 +47,7 @@ struct DevCacheDetectorTests {
     }
 
     @Test("ignores matches below minBytes")
-    func respectsMinBytes() {
+    func respectsMinBytes() async {
         let tree = makeNode(
             name: "project",
             isDirectory: true,
@@ -55,12 +55,12 @@ struct DevCacheDetectorTests {
                 makeNode(name: "node_modules", size: 500, isDirectory: true)
             ]
         )
-        let findings = DevCacheDetector(minBytes: 1_000_000).detect(in: tree)
+        let findings = await DevCacheDetector(minBytes: 1_000_000).detect(in: tree)
         #expect(findings.isEmpty)
     }
 
     @Test("does not descend into a matched node_modules")
-    func doesNotDescend() {
+    func doesNotDescend() async {
         // Nested node_modules inside node_modules must not produce duplicate findings.
         let tree = makeNode(
             name: "project",
@@ -73,7 +73,7 @@ struct DevCacheDetectorTests {
                 ])
             ]
         )
-        let findings = DevCacheDetector().detect(in: tree)
+        let findings = await DevCacheDetector().detect(in: tree)
         #expect(findings.first?.items.count == 1)
     }
 }
@@ -81,7 +81,7 @@ struct DevCacheDetectorTests {
 @Suite("LargeOldDetector")
 struct LargeOldDetectorTests {
     @Test("reports files that are both large and old")
-    func reportsLargeOld() {
+    func reportsLargeOld() async {
         let oneYearAgo = Date().addingTimeInterval(-365 * 86_400)
         let recent = Date().addingTimeInterval(-7 * 86_400)
         let bigBytes: Int64 = 600 * 1024 * 1024
@@ -97,7 +97,7 @@ struct LargeOldDetectorTests {
             ]
         )
 
-        let findings = LargeOldDetector().detect(in: tree)
+        let findings = await LargeOldDetector().detect(in: tree)
         #expect(findings.count == 1)
         #expect(findings.first?.items.count == 1)
         #expect(findings.first?.items.first?.name == "old-video.mov")
@@ -107,7 +107,7 @@ struct LargeOldDetectorTests {
 @Suite("IncompleteDownloadDetector")
 struct IncompleteDownloadDetectorTests {
     @Test("matches .crdownload and .part files")
-    func matchesExtensions() {
+    func matchesExtensions() async {
         let tree = makeNode(
             name: "Downloads",
             isDirectory: true,
@@ -118,7 +118,7 @@ struct IncompleteDownloadDetectorTests {
                 makeNode(name: "doc.pdf",               size: 100)
             ]
         )
-        let findings = IncompleteDownloadDetector().detect(in: tree)
+        let findings = await IncompleteDownloadDetector().detect(in: tree)
         #expect(findings.first?.items.count == 2)
     }
 }
