@@ -54,7 +54,7 @@ let package = Package(
         ),
         .testTarget(
             name: "StorixCoreTests",
-            dependencies: ["StorixCore"],
+            dependencies: ["StorixCore", "StorixAI"],
             path: "Tests/StorixCoreTests"
         )
     ]
