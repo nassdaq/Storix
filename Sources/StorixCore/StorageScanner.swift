@@ -83,7 +83,7 @@ public final class StorageScanner: @unchecked Sendable {
         }
 
         progress(.classifying)
-        let findings = detectors.runAll(on: rootNode)
+        let findings = await detectors.runAll(on: rootNode)
         progress(.done)
 
         return ScanResult(
