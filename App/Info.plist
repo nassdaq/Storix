@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>Storix</string>
+    <key>CFBundleExecutable</key>
+    <string>Storix</string>
+    <key>CFBundleIdentifier</key>
+    <string>africa.neurotech.Storix</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>Storix</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>0.1.0</string>
+    <key>CFBundleVersion</key>
+    <string>1</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>14.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSDesktopFolderUsageDescription</key>
+    <string>Storix scans your Desktop to surface large and old files that are safe to delete.</string>
+    <key>NSDocumentsFolderUsageDescription</key>
+    <string>Storix scans your Documents folder to surface large and old files that are safe to delete.</string>
+    <key>NSDownloadsFolderUsageDescription</key>
+    <string>Storix scans your Downloads folder to surface stale downloads and junk.</string>
+    <key>NSRemovableVolumesUsageDescription</key>
+    <string>Storix can scan connected external drives for junk and duplicates.</string>
+    <key>NSSystemAdministrationUsageDescription</key>
+    <string>Storix needs Full Disk Access to analyze system caches, application support, and derived data.</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
+    <key>LSUIElement</key>
+    <false/>
+</dict>
+</plist>

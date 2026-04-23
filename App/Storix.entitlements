@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Sandbox disabled: Storix needs Full Disk Access and cannot run sandboxed. -->
+    <!-- Distribution outside the Mac App Store is required.                       -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+
+    <!-- Read access everywhere the user grants Full Disk Access to. -->
+    <key>com.apple.security.files.all</key>
+    <true/>
+
+    <!-- User-selected read/write for file pickers. -->
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <!-- Network client for Claude CLI / future updates. -->
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <!-- Temporary exceptions for Downloads / Desktop / Documents (OS will prompt). -->
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <!-- Scripting + subprocess execution for invoking `claude` CLI. -->
+    <key>com.apple.security.inherit</key>
+    <true/>
+</dict>
+</plist>
