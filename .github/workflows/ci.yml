@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain
+        run: |
+          xcrun --version
+          swift --version
+
+      - name: Build
+        run: swift build -c debug
+
+      - name: Test
+        run: swift test
+
+      - name: Bundle .app (release)
+        run: ./Scripts/bundle-app.sh release
+
+      - name: Verify codesign
+        run: codesign --verify --verbose build/Storix.app
+
+      - name: Upload .app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Storix-app
+          path: build/Storix.app
+          retention-days: 14

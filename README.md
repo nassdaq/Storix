@@ -1,73 +1,105 @@
 # Storix
 
-Storage optimizer + cleaner for macOS. Radial sunburst treemap, AI-assisted classification, trash-safe deletion with undo.
-
-## Status
-
-Scaffold only. No business logic implemented yet — every module compiles with typed stubs marked `// MARK: TODO`.
+Storage optimizer + cleaner for macOS. Radial sunburst + squarified treemap, AI-assisted classification, trash-safe deletion with undo.
 
 ## Stack
 
-- **Platform:** macOS 14 Sonoma+, Swift 5.9, SwiftUI, AppKit where needed
-- **Build:** Swift Package Manager (library modules) + Xcode project overlay for .app bundle
-- **AI:** Auto-detects `claude` CLI in `$PATH` (Claude Code) and shells out. No CLI → heuristics only.
-- **Distribution:** Open source (MIT)
+- macOS 14 Sonoma+, Swift 5.9, SwiftUI + AppKit bridges
+- Swift Package Manager (6 modules) · Xcode project overlay via [XcodeGen](https://github.com/yonaskolb/XcodeGen)
+- AI: auto-detects `claude` CLI in `$PATH` / `$CLAUDE_BIN` / standard install locations; heuristics-only fallback
+- Distribution: open source (MIT), ad-hoc-signed `.app` + `.dmg` via shell scripts; CI-built artifact via GitHub Actions
 
 ## Modules
 
-| Module          | Role                                                             |
-| --------------- | ---------------------------------------------------------------- |
-| `StorixCore`    | Scanner, hasher, duplicate finder, category detectors, models    |
-| `StorixCleaner` | Trash-safe deletion via `NSWorkspace.recycle` + JSON undo manifest |
-| `StorixAI`      | `claude` CLI detection + natural-language query parser           |
-| `StorixAgent`   | Menu bar status item + LaunchAgent scheduler (weekly scans)      |
-| `StorixUI`      | Theme, sunburst/treemap views, screens                           |
-| `Storix` (exe)  | SwiftUI `@main` entry wiring all modules                         |
+| Module          | Role                                                                 |
+| --------------- | -------------------------------------------------------------------- |
+| `StorixCore`    | `StorageScanner`, hashers, `DuplicateFinder`, `PerceptualHasher`, 6 category detectors, models |
+| `StorixCleaner` | Trash-safe deletion via `NSWorkspace.recycle` + JSON undo manifest   |
+| `StorixAI`      | `ClaudeDetector`, `ClaudeClient` (shells out `claude -p`), NL → `QueryPredicate` |
+| `StorixAgent`   | `MenuBarController`, `Scheduler` (LaunchAgent via `launchctl bootstrap`), `HeadlessRunner` |
+| `StorixUI`      | Neon theme, `SunburstView` (tap-to-zoom), `TreemapView` (squarified), 7 screens |
+| `Storix`        | SwiftUI `@main`; detects `--scheduled-scan` and runs headless        |
 
-## Features (v1 scope)
+## Detectors (built-in)
 
-- Full disk scan (Full Disk Access entitlement required)
-- Categories: dev caches, duplicates (exact + perceptual), system/app caches, large + old files
-- Radial sunburst treemap (Storix neon palette)
-- Natural-language query ("find videos from 2022 over 1GB") when `claude` CLI present
-- Menu bar live disk-use indicator
-- Scheduled weekly scan via LaunchAgent
-- Before/after share card
-- Deletion via Trash + JSON manifest; one-click undo of last N cleanups
+| Detector                | Finds                                                      | Risk   |
+| ----------------------- | ---------------------------------------------------------- | ------ |
+| `DevCacheDetector`      | `node_modules`, `.venv`, `target`, `.gradle`, `.next`, etc. | low    |
+| `SystemCacheDetector`   | `~/Library/Caches`, `Logs`, `WebKit`, `CrashReporter`      | low    |
+| `XcodeJunkDetector`     | DerivedData, Archives, DeviceSupport, CoreSimulator caches | low    |
+| `IncompleteDownloadDetector` | `.crdownload`, `.part`, `.download`, `.opdownload`   | low    |
+| `LargeOldDetector`      | Files > 500 MB untouched > 180 days                        | high   |
+| `DuplicateDetector`     | Byte-identical files (size → quick-hash → SHA-256 pipeline) | medium |
+| `NearDuplicateDetector` | Perceptual dHash similarity (opt-in; heavy I/O)            | high   |
+
+## Running
+
+### Quick (dev iteration)
+
+```bash
+swift run Storix          # launches the bare Mach-O; MenuBarExtra/NSSavePanel stubs work
+```
+
+### Full `.app` bundle (recommended)
+
+```bash
+./Scripts/bundle-app.sh release    # → build/Storix.app (ad-hoc signed, entitled)
+open build/Storix.app
+```
+
+On first launch, grant **Full Disk Access** in **System Settings → Privacy & Security → Full Disk Access** so the scanner can reach `~/Library`, `/System`, etc.
+
+### Xcode workflow
+
+```bash
+brew install xcodegen        # one-time
+xcodegen generate            # → Storix.xcodeproj
+open Storix.xcodeproj
+```
+
+Xcode is required for SwiftUI previews, the LLDB debugger, and `Archive → Distribute App`. The generated project consumes the same SwiftPM package — no duplicated source lists.
+
+### DMG release
+
+```bash
+./Scripts/bundle-dmg.sh 0.1.0      # → build/Storix-0.1.0.dmg
+```
+
+## Scheduled scans
+
+Weekly scans are controlled from **Settings → Automation → Weekly background scan**. When enabled, Storix writes a LaunchAgent plist to `~/Library/LaunchAgents/galacha.industries.Storix.weekly.plist` and registers it via `launchctl bootstrap gui/$UID`. The agent invokes the app with `--scheduled-scan`, which runs headlessly (no UI), writes a summary JSON to `~/Library/Application Support/Storix/scheduled/`, and posts a `UNNotification` with the recoverable total.
 
 ## Design tokens
 
 ```
 Background:  #0A0A0F
+Surface:     #13131A
 Text:        #F4F4F5
-Accent:      #7C3AED  (largest slices)
-Ring:        #3B82F6 → #06B6D4 → #10B981 (smallest slices)
+Accent:      #7C3AED → #3B82F6 → #06B6D4 → #10B981   (largest → smallest)
 ```
 
-## Build
+## Tests
 
 ```bash
-swift build              # compile all modules
-swift test               # run StorixCoreTests
-swift run Storix         # launch (dev only — no .app bundle)
+swift test            # 21 tests across Scanner, Detectors, DuplicateFinder,
+                      # PerceptualHash, QueryPredicate, NL strip helpers
 ```
-
-For production `.app` bundle with Full Disk Access entitlement, use the `Scripts/bundle-app.sh` helper (TODO) or open the package in Xcode and configure a proper app target.
 
 ## Requirements
 
-- Xcode 15+
-- macOS 14 Sonoma+ SDK
-
-## Entitlements
-
-See `App/Storix.entitlements`. Grant Full Disk Access via **System Settings → Privacy & Security → Full Disk Access** after first launch.
+- Xcode 15+ or Command Line Tools 15+
+- macOS 14 Sonoma SDK or newer
+- (Optional) [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) for natural-language queries
 
 ## Roadmap
 
-- [ ] Phase 1 — scanner engine (rayon-style parallel walk, FileManager enumerator)
-- [ ] Phase 2 — duplicate detection (SHA256 exact + pHash perceptual)
-- [ ] Phase 3 — sunburst renderer (Canvas or Metal)
-- [ ] Phase 4 — Claude CLI integration
-- [ ] Phase 5 — menu bar + LaunchAgent
-- [ ] Phase 6 — notarization + signed DMG release
+- [x] Scanner engine with protected-path skipping
+- [x] 6 detectors (5 heuristic + exact duplicates)
+- [x] Trash + manifest + undo
+- [x] Sunburst (tap-to-zoom) + squarified treemap
+- [x] Claude CLI integration + NL query
+- [x] Menu bar + LaunchAgent + headless mode
+- [x] Share card export
+- [ ] Near-duplicate opt-in UI flow
+- [ ] Notarized + hardened-runtime signed releases
+- [ ] Homebrew cask
