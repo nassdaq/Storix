@@ -8,29 +8,39 @@ public struct ClaudeInstallation: Sendable {
 public final class ClaudeDetector: @unchecked Sendable {
     public init() {}
 
-    /// Locations we search for the `claude` CLI, in priority order.
-    /// Covers the three common install flows: npm global, Homebrew, manual.
+    /// Well-known install locations checked when `$PATH` and `$CLAUDE_BIN` don't resolve.
+    /// Priority order mirrors the most common Claude Code install flows.
     public static let searchPaths: [String] = [
         "/opt/homebrew/bin/claude",
         "/usr/local/bin/claude",
         "\(NSHomeDirectory())/.claude/local/claude",
         "\(NSHomeDirectory())/.npm-global/bin/claude",
         "\(NSHomeDirectory())/.volta/bin/claude",
-        "\(NSHomeDirectory())/.nvm/versions/node/current/bin/claude"
+        "\(NSHomeDirectory())/.bun/bin/claude"
     ]
 
-    /// Returns true if `claude` CLI is runnable anywhere on the machine.
     public func isAvailable() -> Bool {
         locate() != nil
     }
 
-    /// Find the first runnable `claude` binary. Checks `$PATH` first, then well-known locations.
+    /// Resolve the first runnable `claude` executable.
+    ///
+    /// Resolution order:
+    /// 1. `$CLAUDE_BIN` (explicit override)
+    /// 2. `$PATH` lookup
+    /// 3. Well-known paths above
     public func locate() -> ClaudeInstallation? {
         let fm = FileManager.default
 
+        if let override = ProcessInfo.processInfo.environment["CLAUDE_BIN"],
+           !override.isEmpty,
+           fm.isExecutableFile(atPath: override) {
+            let url = URL(fileURLWithPath: override)
+            return ClaudeInstallation(executableURL: url, version: probeVersion(at: url))
+        }
+
         if let onPath = resolveInPATH(binary: "claude") {
-            let version = probeVersion(at: onPath)
-            return ClaudeInstallation(executableURL: onPath, version: version)
+            return ClaudeInstallation(executableURL: onPath, version: probeVersion(at: onPath))
         }
 
         for candidate in Self.searchPaths where fm.isExecutableFile(atPath: candidate) {
@@ -64,7 +74,14 @@ public final class ClaudeDetector: @unchecked Sendable {
             try process.run()
             process.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines)
+            let raw = String(data: data, encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+
+            // Output looks like "1.0.12 (Claude Code)" — extract the first semver-ish token.
+            if let match = raw.range(of: #"\d+\.\d+\.\d+"#, options: .regularExpression) {
+                return String(raw[match])
+            }
+            return raw.isEmpty ? nil : raw
         } catch {
             return nil
         }

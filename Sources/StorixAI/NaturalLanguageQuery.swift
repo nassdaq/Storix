@@ -66,7 +66,8 @@ public final class NaturalLanguageQuery: @unchecked Sendable {
     }
 
     private func decode(_ raw: String) throws -> QueryPredicate {
-        guard let data = raw.data(using: .utf8) else {
+        let stripped = Self.stripCodeFences(raw)
+        guard let data = stripped.data(using: .utf8) else {
             return QueryPredicate()
         }
         struct DTO: Decodable {
@@ -86,5 +87,35 @@ public final class NaturalLanguageQuery: @unchecked Sendable {
             extensions: Set((dto.extensions ?? []).map { $0.lowercased() }),
             pathContains: dto.pathContains ?? []
         )
+    }
+
+    /// Strip ```json / ``` code fences Claude often wraps structured output in, even when
+    /// told not to. Also trims prose before/after a JSON block.
+    static func stripCodeFences(_ raw: String) -> String {
+        let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // Extract any fenced block first.
+        if let open = trimmed.range(of: "```") {
+            let afterOpen = trimmed[open.upperBound...]
+            // Skip optional language tag on the same line (e.g. "json\n").
+            let contentStart: String.Index
+            if let newline = afterOpen.firstIndex(of: "\n") {
+                contentStart = afterOpen.index(after: newline)
+            } else {
+                contentStart = afterOpen.startIndex
+            }
+            let body = trimmed[contentStart...]
+            if let close = body.range(of: "```") {
+                return String(body[..<close.lowerBound]).trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+        }
+
+        // Fallback: carve out the outermost {...} block.
+        if let first = trimmed.firstIndex(of: "{"),
+           let last = trimmed.lastIndex(of: "}") {
+            return String(trimmed[first...last])
+        }
+
+        return trimmed
     }
 }
