@@ -4,7 +4,7 @@ import StorixCore
 public struct CleanupConfirmView: View {
     public let onDone: () -> Void
     public let onCancel: () -> Void
-
+    @EnvironmentObject private var appState: AppState
     @State private var cleaning = false
 
     public init(onDone: @escaping () -> Void, onCancel: @escaping () -> Void) {
@@ -25,9 +25,9 @@ public struct CleanupConfirmView: View {
                 .foregroundStyle(Theme.textPrimary)
 
             VStack(spacing: Theme.Spacing.xs) {
-                Text("0 items will be moved to Trash.")
+                Text("\(itemCount) item\(itemCount == 1 ? "" : "s") — \(sizeLabel) will be moved to Trash.")
                     .foregroundStyle(Theme.textSecondary)
-                Text("Manifest will be written so you can undo this cleanup later.")
+                Text("A manifest is written so you can undo this cleanup later.")
                     .font(.system(size: 12))
                     .foregroundStyle(Theme.textTertiary)
             }
@@ -55,7 +55,7 @@ public struct CleanupConfirmView: View {
                         .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
                 }
                 .buttonStyle(.plain)
-                .disabled(cleaning)
+                .disabled(cleaning || itemCount == 0)
             }
             .padding(.top, Theme.Spacing.md)
 
@@ -64,15 +64,27 @@ public struct CleanupConfirmView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
+    private var findingsForSelected: [Finding] {
+        guard let cat = appState.selectedCategory else { return [] }
+        return appState.scanResult?.findings(in: cat) ?? []
+    }
+
+    private var itemCount: Int {
+        findingsForSelected.reduce(0) { $0 + $1.items.count }
+    }
+
+    private var sizeLabel: String {
+        let bytes = findingsForSelected.reduce(Int64(0)) { $0 + $1.totalBytes }
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
     private func runCleanup() {
+        guard let cat = appState.selectedCategory else { return }
         cleaning = true
         Task {
-            // MARK: TODO — Cleaner.execute(plans:) via AppState
-            try? await Task.sleep(nanoseconds: 900_000_000)
-            await MainActor.run {
-                cleaning = false
-                onDone()
-            }
+            await appState.cleanup(category: cat)
+            cleaning = false
+            onDone()
         }
     }
 }

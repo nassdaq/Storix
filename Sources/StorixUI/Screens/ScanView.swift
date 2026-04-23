@@ -3,8 +3,7 @@ import StorixCore
 
 public struct ScanView: View {
     public let onComplete: () -> Void
-    @State private var progress: ScanProgress = .idle
-    @State private var scanning: Bool = false
+    @EnvironmentObject private var appState: AppState
 
     public init(onComplete: @escaping () -> Void) {
         self.onComplete = onComplete
@@ -20,7 +19,7 @@ public struct ScanView: View {
                     .frame(width: 220, height: 220)
 
                 Circle()
-                    .trim(from: 0, to: scanning ? 0.75 : 0.0)
+                    .trim(from: 0, to: appState.isScanning ? 0.75 : 0.0)
                     .stroke(
                         AngularGradient(
                             colors: [Theme.accent, Theme.accent2, Theme.accent3, Theme.accent4, Theme.accent],
@@ -29,12 +28,12 @@ public struct ScanView: View {
                         style: StrokeStyle(lineWidth: 3, lineCap: .round)
                     )
                     .frame(width: 220, height: 220)
-                    .rotationEffect(.degrees(scanning ? 360 : 0))
+                    .rotationEffect(.degrees(appState.isScanning ? 360 : 0))
                     .animation(
-                        scanning
+                        appState.isScanning
                             ? .linear(duration: 2.0).repeatForever(autoreverses: false)
                             : .default,
-                        value: scanning
+                        value: appState.isScanning
                     )
 
                 VStack(spacing: Theme.Spacing.sm) {
@@ -42,21 +41,24 @@ public struct ScanView: View {
                         .font(.system(size: 32, weight: .bold))
                         .foregroundStyle(Theme.textPrimary)
                     Text(statusLabel)
-                        .font(.system(size: 12, design: .monospaced))
+                        .font(.system(size: 11, design: .monospaced))
                         .foregroundStyle(Theme.textTertiary)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: 240)
                 }
             }
 
             Button(action: startScan) {
-                Text(scanning ? "Scanning…" : "Scan full disk")
+                Text(appState.isScanning ? "Scanning…" : "Scan home directory")
                     .font(.system(size: 14, weight: .semibold))
-                    .frame(width: 200, height: 40)
+                    .frame(width: 220, height: 40)
                     .background(Theme.accent)
                     .foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
             }
             .buttonStyle(.plain)
-            .disabled(scanning)
+            .disabled(appState.isScanning)
 
             Spacer()
         }
@@ -64,23 +66,27 @@ public struct ScanView: View {
     }
 
     private var statusLabel: String {
-        switch progress {
-        case .idle:                               return "Ready"
-        case .walking(let seen, let bytes, _):    return "Walking — \(seen) files, \(ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file))"
-        case .hashing(let done, let total):       return "Hashing \(done)/\(total)"
-        case .classifying:                        return "Classifying"
-        case .done:                               return "Done"
+        switch appState.scanProgress {
+        case .idle:
+            return "Ready"
+        case .walking(let seen, let bytes, let path):
+            let sizeStr = ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+            if path.isEmpty { return "\(seen) files · \(sizeStr)" }
+            let shortPath = URL(fileURLWithPath: path).lastPathComponent
+            return "\(seen) · \(sizeStr) · \(shortPath)"
+        case .hashing(let done, let total):
+            return "Hashing \(done)/\(total)"
+        case .classifying:
+            return "Classifying"
+        case .done:
+            return "Done"
         }
     }
 
     private func startScan() {
-        scanning = true
         Task {
-            // MARK: TODO — wire to StorixCore.StorageScanner via AppState
-            try? await Task.sleep(nanoseconds: 1_500_000_000)
-            await MainActor.run {
-                scanning = false
-                progress = .done
+            await appState.runScan()
+            if appState.scanResult != nil {
                 onComplete()
             }
         }

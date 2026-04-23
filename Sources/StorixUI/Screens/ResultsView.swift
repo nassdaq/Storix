@@ -4,6 +4,7 @@ import StorixCore
 public struct ResultsView: View {
     public let onClean: () -> Void
     public let onQuery: () -> Void
+    @EnvironmentObject private var appState: AppState
 
     public init(onClean: @escaping () -> Void, onQuery: @escaping () -> Void) {
         self.onClean = onClean
@@ -31,14 +32,19 @@ public struct ResultsView: View {
 
                 ScrollView {
                     LazyVStack(spacing: Theme.Spacing.sm) {
-                        ForEach(JunkCategory.allCases) { cat in
+                        ForEach(categoriesWithFindings, id: \.self) { cat in
+                            let items = appState.scanResult?.findings(in: cat).flatMap(\.items) ?? []
                             CategoryCard(
                                 category: cat,
-                                totalBytes: 0,
-                                itemCount: 0,
-                                selected: false,
-                                onTap: {}
+                                totalBytes: items.reduce(Int64(0)) { $0 + $1.size },
+                                itemCount: items.count,
+                                selected: appState.selectedCategory == cat,
+                                onTap: { appState.selectedCategory = cat }
                             )
+                        }
+
+                        if categoriesWithFindings.isEmpty {
+                            emptyState
                         }
                     }
                     .padding(.horizontal, Theme.Spacing.lg)
@@ -51,7 +57,7 @@ public struct ResultsView: View {
                         Text("Total recoverable")
                             .font(.system(size: 10))
                             .foregroundStyle(Theme.textTertiary)
-                        Text("0 B")
+                        Text(totalRecoverableLabel)
                             .font(.system(size: 18, weight: .bold, design: .rounded))
                             .foregroundStyle(Theme.textPrimary)
                     }
@@ -61,11 +67,12 @@ public struct ResultsView: View {
                             .font(.system(size: 13, weight: .semibold))
                             .padding(.horizontal, 16)
                             .padding(.vertical, 10)
-                            .background(Theme.accent)
+                            .background(appState.selectedCategory == nil ? Theme.border : Theme.accent)
                             .foregroundStyle(.white)
                             .clipShape(RoundedRectangle(cornerRadius: Theme.Radius.small))
                     }
                     .buttonStyle(.plain)
+                    .disabled(appState.selectedCategory == nil)
                 }
                 .padding(Theme.Spacing.lg)
             }
@@ -73,12 +80,40 @@ public struct ResultsView: View {
             .background(Theme.surface)
 
             // Right: sunburst
-            SunburstView(root: placeholderRoot)
+            SunburstView(root: appState.scanResult?.rootNode ?? emptyRoot)
                 .padding(Theme.Spacing.lg)
         }
     }
 
-    private var placeholderRoot: FileNode {
+    private var categoriesWithFindings: [JunkCategory] {
+        let result = appState.scanResult
+        return JunkCategory.allCases.filter { cat in
+            !(result?.findings(in: cat).isEmpty ?? true)
+        }
+    }
+
+    private var totalRecoverableLabel: String {
+        let bytes = appState.scanResult?.totalRecoverableBytes ?? 0
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: Theme.Spacing.sm) {
+            Image(systemName: "sparkles")
+                .font(.system(size: 32))
+                .foregroundStyle(Theme.textTertiary)
+            Text("Nothing to clean")
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(Theme.textSecondary)
+            Text("Your disk looks tidy.")
+                .font(.system(size: 11))
+                .foregroundStyle(Theme.textTertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, Theme.Spacing.xl)
+    }
+
+    private var emptyRoot: FileNode {
         FileNode(
             url: URL(fileURLWithPath: NSHomeDirectory()),
             name: "Home",

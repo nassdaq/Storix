@@ -2,10 +2,16 @@ import SwiftUI
 
 public struct BeforeAfterView: View {
     public let onDone: () -> Void
+    @EnvironmentObject private var appState: AppState
     @State private var animateNumber = false
 
     public init(onDone: @escaping () -> Void) {
         self.onDone = onDone
+    }
+
+    private var freedLabel: String {
+        let bytes = appState.lastCleanup?.totalBytes ?? 0
+        return ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     public var body: some View {
@@ -20,7 +26,7 @@ public struct BeforeAfterView: View {
                 .font(.system(size: 14))
                 .foregroundStyle(Theme.textSecondary)
 
-            Text("0 GB")
+            Text(freedLabel)
                 .font(.system(size: 72, weight: .bold, design: .rounded))
                 .foregroundStyle(Theme.textPrimary)
                 .monospacedDigit()
